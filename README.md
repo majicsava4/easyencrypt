@@ -39,7 +39,7 @@ g++  -O2 main.cpp -o easyencrypt -lcryptopp
 ```
 
 ## Usage
-- Open a terminal in the project directory
-  ```bash
-  ./easyencrypt <decrypt/encrypt> <inputfile> <key>
-  ```
+Open a terminal in the project directory
+```bash
+./easyencrypt <decrypt/encrypt> <inputfile> <key>
+```
