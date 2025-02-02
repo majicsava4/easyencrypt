@@ -24,10 +24,10 @@ A simple command-line tool for encrypting and decrypting files using AES (CBC mo
     ```bash
     sudo apt-get install libcrypto++-dev
     ```
-  -On Arch install with:
-   ```bash
-   sudo pacman -S libcrypto++-dev
-   ```
+  - On Arch install with:
+    ```bash
+    sudo pacman -S libcrypto++-dev
+    ```
   - For other systems or detailed installation instructions, see the [Crypto++ website](https://www.cryptopp.com/).
 
 ## Compilation
@@ -37,3 +37,9 @@ To compile the project, open a terminal in the project directory and run:
 ```bash
 g++  -O2 main.cpp -o easyencrypt -lcryptopp
 ```
+
+## Usage
+- Open a terminal in the project directory
+  ```bash
+  ./easyencrypt <decrypt/encrypt> <inputfile> <key>
+  ```
