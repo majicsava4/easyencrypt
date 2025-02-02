@@ -1,12 +1,15 @@
+#include <cryptopp/cryptlib.h>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <cryptopp/aes.h>
 #include <string>
+#include <cryptopp/modes.h>
+#include <cryptopp/filters.h>
+#include <cryptopp/hex.h>
+#include <algorithm>
 
-
-
-static bool strEqual(const char *s1,const char *s2){
+static bool strEqual(const char *s1, const char *s2){
 
   if(strlen(s1) != strlen(s2)){
     return false;
@@ -21,54 +24,108 @@ static bool strEqual(const char *s1,const char *s2){
 }
 
 
-static void checkErorr(int argc, char *argv[]){
-  if(argc != 5){
-    std::cerr << "Usage: " << argv[0] << " <encrypt/decrypt> <inputfile> <destination file> <key>\n";
+static void checkError(int argc, char *argv[]){
+  if(argc != 4){
+    std::cerr << "Usage: " << argv[0] << " <encrypt/decrypt> <inputfile> <key>\n";
+    exit(1);
   }
   else if(!strEqual(argv[1], (char*)"encrypt") && !strEqual(argv[1], (char*)"decrypt")){
     std::cerr << "First argument can only be encrypt or decrypt\n";
-  }else if(strlen(argv[1]) != 16){
-    std::cerr << "Key must be minimum 16 bytes.\n";
+    exit(1);
+  }else if(strlen(argv[3]) < 16){
+    std::cerr << "Key must be 16 bytes.\n";
+    exit(1);
   }
   
 }
 
 
-static std::string AESEncrypt(const std::string fileContent, const std::string keyString){
+static std::string AESEncrypt(const std::string &fileContent, const std::string &keyString){
 
     std::string encryptedString;
-    std::byte key[CryptoPP::AES::DEFAULT_KEYLENGTH] = {};
+    CryptoPP::byte key[CryptoPP::AES::DEFAULT_KEYLENGTH] = {};
 
-    std::memcpy(key, keyString.data(), keyString.size());
+    std::memcpy(key, keyString.data(), std::min(keyString.size(), sizeof(key)));
 
-    std::byte iv[CryptoPP::AES::BLOCKSIZE] = {};
+    CryptoPP::byte iv[CryptoPP::AES::BLOCKSIZE] = {};
     std::memset(iv, 0, CryptoPP::AES::BLOCKSIZE);
     
-    CBC_MODE
+    CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption;
+    encryption.SetKeyWithIV(key, sizeof(key), iv, sizeof(iv));
     
+
+    CryptoPP::StringSource ss(fileContent, true, new CryptoPP::StreamTransformationFilter(encryption, new CryptoPP::StringSink(encryptedString)));
     
     return encryptedString;
 }
 
+
+static std::string AESDecrypt(const std::string &fileContent, const std::string &keyString){
+  std::string decryptedString;
+  CryptoPP::byte key[CryptoPP::AES::DEFAULT_KEYLENGTH] = {};
+
+  std::memcpy(key, keyString.data(), std::min(keyString.size(), sizeof(key)));
+
+  CryptoPP::byte iv[CryptoPP::AES::BLOCKSIZE] = {};
+  std::memset(iv, 0, CryptoPP::AES::BLOCKSIZE);
+
+  CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption decryption;
+  decryption.SetKeyWithIV(key, sizeof(key), iv, sizeof(iv));
+
+  CryptoPP::StringSource ss(fileContent, true, new CryptoPP::StreamTransformationFilter(decryption, new CryptoPP::StringSink(decryptedString)));
+
+  return decryptedString;
+}
+
+
 int main(int argc, char *argv[]){
 
-  checkErorr(argc, argv);
+  checkError(argc, argv);
   
   std::string mode = argv[1];
   std::string inputFileName = argv[2];
-  std::string outputFileName = argv[3];
-  std::string keyString = argv[4]; //minimum 16 bytes for AES-128
+  std::string keyString = argv[3]; //minimum 16 bytes for AES-128
 
    
-  std::ifstream inFile(inputFileName);
+  std::ifstream inFile(inputFileName, std::ios::binary);
   if(!inFile){
     std::cerr << "Error: Unable to open file: " << inputFileName << "\n";
+    exit(1);
   }
   
   std::string fileContent((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>());
-
+  inFile.close();
   
+    
+  if(strEqual(mode.c_str(), (char*)"encrypt")){
+      std::string encrypted = AESEncrypt(fileContent, keyString);
+      std::ofstream outFile("encrypted.bin", std::ios::binary);
 
+      if(!outFile){
+        std::cerr << "Error: Unable to create an output file.\n";
+        exit(1);
+      }
+      
+      outFile.write(encrypted.data(), encrypted.size());
+      outFile.close();
+
+      std::cout << "Encrypted data has been written into encrypted.bin, don't forget your key!\n";
+  }
+
+
+  if(strEqual(mode.c_str(), (char*)"decrypt")){
+      std::string decrypted = AESDecrypt(fileContent, keyString);
+      std::ofstream outFile("decrypted.txt");
+      if(!outFile){
+        std::cerr << "Error: Unable to create an output file.\n";
+        exit(1);
+      }
+
+      outFile.write(decrypted.c_str(), decrypted.size());
+      outFile.close();
+
+      std::cout << "Decrypted text has been written to decrypted.txt\n";
+  }
 
   return 0;
 }
