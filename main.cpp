@@ -6,8 +6,8 @@
 #include <string>
 #include <cryptopp/modes.h>
 #include <cryptopp/filters.h>
-#include <cryptopp/hex.h>
 #include <algorithm>
+#include <cryptopp/osrng.h>
 
 static bool strEqual(const char *s1, const char *s2){
 
@@ -47,33 +47,49 @@ static std::string AESEncrypt(const std::string &fileContent, const std::string 
 
     std::memcpy(key, keyString.data(), std::min(keyString.size(), sizeof(key)));
 
+    //Generating random IV
+    CryptoPP::AutoSeededRandomPool prng;
     CryptoPP::byte iv[CryptoPP::AES::BLOCKSIZE] = {};
-    std::memset(iv, 0, CryptoPP::AES::BLOCKSIZE);
-    
+    prng.GenerateBlock(iv, sizeof(iv));
+        
     CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption;
     encryption.SetKeyWithIV(key, sizeof(key), iv, sizeof(iv));
     
 
     CryptoPP::StringSource ss(fileContent, true, new CryptoPP::StreamTransformationFilter(encryption, new CryptoPP::StringSink(encryptedString)));
+
+
+    //Prepending the IV to the encyptedString
+    std::string ivStr(reinterpret_cast<const char*>(iv), CryptoPP::AES::BLOCKSIZE);
     
-    return encryptedString;
+    return ivStr + encryptedString;
 }
 
 
 static std::string AESDecrypt(const std::string &fileContent, const std::string &keyString){
+
+  //Ensuring the file content is long enough to contain the IV
+  if(fileContent.size() < CryptoPP::AES::BLOCKSIZE){
+    std::cerr << "Too short, missing IV\n";
+    exit(1);
+  }
+
+  //Extracting the IV from the beginning
+  CryptoPP::byte iv[CryptoPP::AES::BLOCKSIZE];
+  std::memcpy(iv, fileContent.data(), CryptoPP::AES::BLOCKSIZE);
+
+  std::string actualText = fileContent.substr(CryptoPP::AES::BLOCKSIZE);
+
   std::string decryptedString;
   CryptoPP::byte key[CryptoPP::AES::DEFAULT_KEYLENGTH] = {};
-
   std::memcpy(key, keyString.data(), std::min(keyString.size(), sizeof(key)));
-
-  CryptoPP::byte iv[CryptoPP::AES::BLOCKSIZE] = {};
-  std::memset(iv, 0, CryptoPP::AES::BLOCKSIZE);
 
   CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption decryption;
   decryption.SetKeyWithIV(key, sizeof(key), iv, sizeof(iv));
 
-  CryptoPP::StringSource ss(fileContent, true, new CryptoPP::StreamTransformationFilter(decryption, new CryptoPP::StringSink(decryptedString)));
+  CryptoPP::StringSource ss(actualText, true, new CryptoPP::StreamTransformationFilter(decryption, new CryptoPP::StringSink(decryptedString)));
 
+  
   return decryptedString;
 }
 
