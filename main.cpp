@@ -1,4 +1,5 @@
 #include <cryptopp/cryptlib.h>
+#include <cryptopp/secblock.h>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -8,6 +9,20 @@
 #include <cryptopp/filters.h>
 #include <algorithm>
 #include <cryptopp/osrng.h>
+
+
+
+static void printUsage(const char* easyencrypt) {
+    std::cout << "Usage: " << easyencrypt << " <encrypt|decrypt> <inputfile> <key>\n";
+    std::cout << "  <encrypt|decrypt> : Specify whether to encrypt or decrypt the file\n";
+    std::cout << "  <inputfile>       : The file to be encrypted/decrypted\n";
+    std::cout << "  <key>             : A 16-byte key for AES-128 encryption\n";
+    std::cout << "Example:\n";
+    std::cout << "  " << easyencrypt << " encrypt myfile.txt 0123456789abcdef\n";
+}
+
+
+
 
 static bool strEqual(const char *s1, const char *s2){
 
@@ -32,7 +47,7 @@ static void checkError(int argc, char *argv[]){
   else if(!strEqual(argv[1], (char*)"encrypt") && !strEqual(argv[1], (char*)"decrypt")){
     std::cerr << "First argument can only be encrypt or decrypt\n";
     exit(1);
-  }else if(strlen(argv[3]) < 16){
+  }else if(strlen(argv[3]) != 16){
     std::cerr << "Key must be 16 bytes.\n";
     exit(1);
   }
@@ -43,24 +58,25 @@ static void checkError(int argc, char *argv[]){
 static std::string AESEncrypt(const std::string &fileContent, const std::string &keyString){
 
     std::string encryptedString;
-    CryptoPP::byte key[CryptoPP::AES::DEFAULT_KEYLENGTH] = {};
+    
+    CryptoPP::SecByteBlock key(CryptoPP::AES::DEFAULT_KEYLENGTH);
 
-    std::memcpy(key, keyString.data(), std::min(keyString.size(), sizeof(key)));
+    std::memcpy(key, keyString.data(), std::min(keyString.size(), key.size()));
 
     //Generating random IV
     CryptoPP::AutoSeededRandomPool prng;
-    CryptoPP::byte iv[CryptoPP::AES::BLOCKSIZE] = {};
-    prng.GenerateBlock(iv, sizeof(iv));
+    CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
+    prng.GenerateBlock(iv, iv.size());
         
     CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption encryption;
-    encryption.SetKeyWithIV(key, sizeof(key), iv, sizeof(iv));
+    encryption.SetKeyWithIV(key, key.size(), iv, iv.size());
     
 
     CryptoPP::StringSource ss(fileContent, true, new CryptoPP::StreamTransformationFilter(encryption, new CryptoPP::StringSink(encryptedString)));
 
 
     //Prepending the IV to the encyptedString
-    std::string ivStr(reinterpret_cast<const char*>(iv), CryptoPP::AES::BLOCKSIZE);
+    std::string ivStr(reinterpret_cast<const char*>(&iv[0]), iv.size());
     
     return ivStr + encryptedString;
 }
@@ -75,17 +91,17 @@ static std::string AESDecrypt(const std::string &fileContent, const std::string 
   }
 
   //Extracting the IV from the beginning
-  CryptoPP::byte iv[CryptoPP::AES::BLOCKSIZE];
+  CryptoPP::SecByteBlock iv(CryptoPP::AES::BLOCKSIZE);
   std::memcpy(iv, fileContent.data(), CryptoPP::AES::BLOCKSIZE);
 
   std::string actualText = fileContent.substr(CryptoPP::AES::BLOCKSIZE);
 
   std::string decryptedString;
-  CryptoPP::byte key[CryptoPP::AES::DEFAULT_KEYLENGTH] = {};
-  std::memcpy(key, keyString.data(), std::min(keyString.size(), sizeof(key)));
+  CryptoPP::SecByteBlock key(CryptoPP::AES::DEFAULT_KEYLENGTH);
+  std::memcpy(key, keyString.data(), std::min(keyString.size(), key.size()));
 
   CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption decryption;
-  decryption.SetKeyWithIV(key, sizeof(key), iv, sizeof(iv));
+  decryption.SetKeyWithIV(key, key.size(), iv, iv.size());
 
   CryptoPP::StringSource ss(actualText, true, new CryptoPP::StreamTransformationFilter(decryption, new CryptoPP::StringSink(decryptedString)));
 
@@ -96,6 +112,14 @@ static std::string AESDecrypt(const std::string &fileContent, const std::string 
 
 int main(int argc, char *argv[]){
 
+
+  if(argc >= 2 && (strEqual(argv[1], "-h") || (strEqual(argv[1], "--help")))){
+
+    printUsage(argv[0]);
+    return 0;
+    
+  }
+  
   checkError(argc, argv);
   
   std::string mode = argv[1];
