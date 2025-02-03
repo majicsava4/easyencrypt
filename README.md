@@ -28,7 +28,7 @@ A simple command-line tool for encrypting and decrypting files using AES (CBC mo
     ```bash
     sudo pacman -S libcrypto++-dev
     ```
-  - For other systems or detailed installation instructions, see the [Crypto++ website](https://www.cryptopp.com/).
+  - For other systems or detailed installation instructions, see the [Crypto++ repository](https://github.com/weidai11/cryptopp).
 
 ## Compilation
 
