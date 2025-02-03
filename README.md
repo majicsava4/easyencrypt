@@ -2,13 +2,6 @@
 
 A simple command-line tool for encrypting and decrypting files using AES (CBC mode) with the Crypto++ library. 
 
-## Disclaimer
-
-**WARNING:**  
-- The encryption in this project directly copies the provided key into a fixed-size buffer.  
-- **Do not use this code for encrypting sensitive data.**  
-- It is provided solely for learning, prototyping, and experimentation purposes.
-
 ## Features
 
 - **Encryption:** Encrypt a plaintext file to produce a binary encrypted file (`encrypted.bin`).
