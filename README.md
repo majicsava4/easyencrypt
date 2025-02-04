@@ -36,3 +36,4 @@ Open a terminal in the project directory
 ```bash
 ./easyencrypt <decrypt/encrypt> <inputfile> <key>
 ```
+- Key must be 16 bytes!
